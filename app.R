@@ -1,5 +1,6 @@
 
 library(shiny)
+library(shinythemes)
 library(shinyWidgets)
 library(DT)
 library(tidyverse)
@@ -8,43 +9,49 @@ source("Util.R")
 
 ui <- fluidPage(
   
+  theme = shinytheme("paper"),
+  
   titlePanel("Significance and Sample Size Dashboard"),
   
   sidebarLayout(
     sidebarPanel(
-      numericInput("n1",
-                   "Sample size",
-                   value = 1000,
-                   min = 0,
-                   max = NA,
-                   step = 100),
       
       materialSwitch("n2_switch",
-                     label = "Use two different samples sizes:",
+                     label = HTML("<b>Use two different samples sizes:</b>"),
                      status = "primary"),
       
-      conditionalPanel("input.n2_switch == true",
+      uiOutput("n_input"),
+      # numericInput("n1",
+      #              "Sample size",
+      #              value = 1000,
+      #              min = 0,
+      #              max = NA,
+      #              step = 100),
+      
+
+      
+      conditionalPanel("input.n2_switch == true & input.tabs == 1",
       numericInput("n2",
-                   "Sample size (n2)",
+                   HTML("<b>Sample size</b> (target group)"),
                    value = 1000,
                    min = 0,
                    max = NA,
                    step = 100)),
       
       numericInput("base",
-                   "Base level (in %)",
+                   HTML("<b>Base level</b> (in %)"),
                    value = 10,
                    min = 0,
                    max = 100,
                    step = 1),
       
       numericRangeInput("target_range",
-                        "Target range (in %)", 
+                        HTML("<b>Target range</b> (in %)"), 
                         value = c(15,20),
                         separator = " to "),
       
       numericInput("steps",
-                   "Target range steps (in %)",
+                   HTML("<b>Target range steps</b> (in %)"),
                    value = 1,
                    min = 0.25,
                    max = 5,
@@ -62,9 +69,22 @@ ui <- fluidPage(
     ), # close sidebarPanel 
     
     mainPanel(
-      # textOutput("n2_text"),
-      # tableOutput("sim"),
-      dataTableOutput("sim")
+      
+      tabsetPanel(id = "tabs",
+                  type = "pills",
+                  
+        tabPanel("Calculator",
+                 value = 1,
+                 dataTableOutput("sim")),
+        
+        tabPanel("Find sample size",
+                 value = 2),
+        
+        tabPanel("Find target value",
+                 value = 3)
+      
+      ) # close tabsetPanel
+      
       ) # close mainPanel
     ) # close sidebarLayout
   ) # close fluidPage
@@ -82,6 +102,21 @@ server <- function(input, output, session) {
       else input$n1
 
   )
+  
+  output$n_input <- renderUI({
+    
+    label <- if(input$n2_switch) HTML("<b>Sample size</b> (base group)") 
+              else HTML("<b>Sample size</b>")
+    
+    if (input$tabs != 2 | (input$tabs == 2 & input$n2_switch))
+    numericInput("n1",
+                 label,
+                 value = 1000,
+                 min = 0,
+                 max = NA,
+                 step = 100)
+    
+    })
   
   sim_dat <- eventReactive(input$go, {
 
