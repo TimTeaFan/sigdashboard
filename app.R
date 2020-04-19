@@ -24,7 +24,7 @@ ui <- fluidPage(
       
       uiOutput("n_input"),
       
-      conditionalPanel("input.n2_switch == true & input.tabs == 1",
+      conditionalPanel("input.n2_switch == true & (input.tabs == 1 | input.tabs == 3)",
       numericInput("n2",
                    HTML("<b>Sample size</b> (target group)"),
                    value = 1000,
@@ -39,24 +39,29 @@ ui <- fluidPage(
                    max = 100,
                    step = 1),
       
-      numericRangeInput("target_range",
-                        HTML("<b>Target range</b> (in %)"), 
-                        value = c(15,20),
-                        separator = " to "),
+      conditionalPanel("input.tabs == 2",
+                       numericInput("target",
+                                    HTML("<b>Target level</b> (in %)"),
+                                    value = 20,
+                                    min = 0,
+                                    max = 100,
+                                    step = 1)),
       
-      numericInput("steps",
-                   HTML("<b>Target range steps</b> (in %)"),
-                   value = 1,
-                   min = 0.25,
-                   max = 5,
-                   step = 0.25),
+      conditionalPanel("input.tabs == 1",
+        numericRangeInput("target_range",
+                          HTML("<b>Target range</b> (in %)"), 
+                          value = c(15,20),
+                          separator = " to ")),
       
-      # numericInput("target",
-      #              "Target level (in %)",
-      #              value = 20,
-      #              min = 0,
-      #              max = 100,
-      #              step = 1),
+      conditionalPanel("input.tabs == 1",
+        numericInput("steps",
+                     HTML("<b>Target range steps</b> (in %)"),
+                     value = 1,
+                     min = 0.25,
+                     max = 5,
+                     step = 0.25)),
+      
+
 
                  actionButton("go","calculate")
       
@@ -138,7 +143,10 @@ server <- function(input, output, session) {
   output$sim <- DT::renderDataTable({
     
     sig_lvls <- c("0.1 %", "1 %", "5 %", "10 %")
-    col_lvls <- c("#5FCFFF", "#80D7FF", "#A3E2FF", "#EBF9FF")
+    col_lvls <- c("rgba(33, 150, 243, 0.5)",
+                  "rgba(33, 150, 243, 0.35)",
+                  "rgba(33, 150, 243, 0.2)",
+                  "rgba(33, 150, 243, 0.1)")
     
     datatable(sim_dat(), options = list(dom = 'tp'), rownames = FALSE) %>%
       formatPercentage(c("target", "real_target"), 2) %>% 
