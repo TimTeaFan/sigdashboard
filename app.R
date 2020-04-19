@@ -13,6 +13,8 @@ ui <- fluidPage(
   
   titlePanel("Significance and Sample Size Dashboard"),
   
+  includeCSS("custom.css"),
+  
   sidebarLayout(
     sidebarPanel(
       
@@ -21,14 +23,6 @@ ui <- fluidPage(
                      status = "primary"),
       
       uiOutput("n_input"),
-      # numericInput("n1",
-      #              "Sample size",
-      #              value = 1000,
-      #              min = 0,
-      #              max = NA,
-      #              step = 100),
-      
-
       
       conditionalPanel("input.n2_switch == true & input.tabs == 1",
       numericInput("n2",

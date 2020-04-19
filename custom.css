@@ -1,0 +1,16 @@
+.well {
+  
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 1px !important;
+    border-right-color: rgba(33, 150, 243, 0.5) !important;
+    border-right-style: solid !important;
+    border-right-width: 1px !important;
+}
+
+.form-control {
+  
+        background-color: #ffffff !important;
+        color: #000000 !important;
+}
+
