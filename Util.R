@@ -35,16 +35,35 @@ check_df <- function(df) {
 
 # function to test for significance
 
-sig_test <- function(df) {
+sig_test <- function(df, chi2 = TRUE) {
   
-  df %>% 
-    lm(value ~ group, data = .) %>% 
-    summary %>% 
-    broom::tidy() %>% 
-    filter(term == "groupref") %>% 
-    pull(p.value)
+  if (chi2) {
+    
+   temp <- table(df[["group"]], df[["value"]]) %>%
+              chisq.test %>% 
+              broom::tidy() 
+    
+  } else {
+    
+    temp <- t.test(value ~ group, data = df) %>% 
+              broom::tidy()
+  }
+  
+    pull(temp, p.value)
   
 }
+
+
+# sig_test_old <- function(df) {
+# 
+#   df %>%
+#     lm(value ~ group, data = .) %>%
+#     summary %>%
+#     broom::tidy() %>%
+#     filter(term == "groupref") %>%
+#     pull(p.value)
+# 
+# }
 
 
 # find sample size
@@ -52,7 +71,7 @@ sig_test <- function(df) {
 find_sample_size <- function(.n1 = NULL, .n2 = 5000, base, target) {
   
   i = .n2
-  n_ini <- seq(100, i, by = 100)
+  n_ini <- seq(i/50, i, by = .5*i / 50)
   check <- 0
   
   if (check == 0) {
@@ -71,11 +90,11 @@ find_sample_size <- function(.n1 = NULL, .n2 = 5000, base, target) {
     mutate(real_target = map_dbl(data, check_df),
            p_value = map_dbl(data, sig_test),
            sig_level = case_when(
-             p_value < .001 ~ "0.1 %",
-             p_value < .01 ~ "1 %",
-             p_value < .05 ~ "5 %",
-             p_value < .1  ~ "10 %",
-             T ~ "Not sig.")
+             p_value < .001 ~ 0.1,
+             p_value < .01 ~ 1,
+             p_value < .05 ~ 5,
+             p_value < .1  ~ 10,
+             T ~ 100)
     ) %>% 
     select(n, real_target, p_value, sig_level)
   
@@ -86,7 +105,7 @@ find_sample_size <- function(.n1 = NULL, .n2 = 5000, base, target) {
   if (check) {
 
     res_n <- temp_res %>%
-      filter(p_value < .05) %>% # round(real_target, 4) == round(target, 4)
+      filter(rev(cummax(rev(p_value))) < .05 & cummin(p_value) <= .05) %>% 
       filter(p_value == max(p_value)) %>%
       pull(n)
 

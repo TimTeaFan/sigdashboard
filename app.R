@@ -4,6 +4,7 @@ library(shinythemes)
 library(shinyWidgets)
 library(DT)
 library(tidyverse)
+library(plotly)
 
 source("Util.R")
 
@@ -61,9 +62,21 @@ ui <- fluidPage(
                      max = 5,
                      step = 0.25)),
       
+      radioGroupButtons(
+        inputId = "chi2",
+        label = HTML("<b>Statistical test</b>"), 
+        choices = c("Chi-squared" = TRUE, "T-test" = FALSE),
+        status = "primary"
+      ),
 
-
-                 actionButton("go","calculate")
+      conditionalPanel("input.tabs == 1",
+                 actionButton("go","calculate")),
+      
+      conditionalPanel("input.tabs == 2",
+                       actionButton("go2","find sample size")),
+      
+      conditionalPanel("input.tabs == 3",
+                       actionButton("go3","find target level"))
       
     ), # close sidebarPanel 
     
@@ -74,7 +87,7 @@ ui <- fluidPage(
                   
         tabPanel("Calculator",
                  value = 1,
-                 dataTableOutput("sim")),
+                 dataTableOutput("calc")),
         
         tabPanel("Find sample size",
                  value = 2),
@@ -104,20 +117,23 @@ server <- function(input, output, session) {
   
   output$n_input <- renderUI({
     
+    # req(input$n2_switch)
+    
     label <- if(input$n2_switch) HTML("<b>Sample size</b> (base group)") 
               else HTML("<b>Sample size</b>")
     
     if (input$tabs != 2 | (input$tabs == 2 & input$n2_switch))
-    numericInput("n1",
-                 label,
-                 value = 1000,
-                 min = 0,
-                 max = NA,
-                 step = 100)
+      
+      numericInput("n1",
+                   label,
+                   value = 1000,
+                   min = 0,
+                   max = NA,
+                   step = 100)
     
     })
   
-  sim_dat <- eventReactive(input$go, {
+  calc_dat <- eventReactive(input$go, {
 
     tibble(target = seq(target_range1(),
                         target_range2(),
@@ -128,7 +144,7 @@ server <- function(input, output, session) {
                                     base = base(),
                                     target = .x)),
            real_target = map_dbl(data, check_df),
-           p_value = map_dbl(data, sig_test),
+           p_value = map_dbl(data, ~ sig_test(.x, input$chi2)),
            sig_level = case_when(
              p_value < .001 ~ "0.1 %",
              p_value < .01 ~ "1 %",
@@ -140,7 +156,12 @@ server <- function(input, output, session) {
     
   })
   
-  output$sim <- DT::renderDataTable({
+  sim_n <- eventReactive(input$go2, {
+    
+    
+  })
+  
+  output$calc <- DT::renderDataTable({
     
     sig_lvls <- c("0.1 %", "1 %", "5 %", "10 %")
     col_lvls <- c("rgba(33, 150, 243, 0.5)",
@@ -148,7 +169,7 @@ server <- function(input, output, session) {
                   "rgba(33, 150, 243, 0.2)",
                   "rgba(33, 150, 243, 0.1)")
     
-    datatable(sim_dat(), options = list(dom = 'tp'), rownames = FALSE) %>%
+    datatable(calc_dat(), options = list(dom = 'tp'), rownames = FALSE) %>%
       formatPercentage(c("target", "real_target"), 2) %>% 
       formatRound('p_value', 3) %>% 
       formatStyle("sig_level",
@@ -156,6 +177,34 @@ server <- function(input, output, session) {
                   backgroundColor = styleEqual(sig_lvls, col_lvls))
   })
   
+  # output$plot <- renderPlotly({
+  #   
+  #   fig <- plot_ly(res$data, x = ~n, y = ~p_value, name = 'TEST', type = 'scatter', mode = 'lines') %>% 
+  #     config(displaylogo = FALSE ,
+  #            modeBarButtonsToRemove = c("zoomIn2d",
+  #                                       "zoomOut2d",
+  #                                       "pan2d",
+  #                                       "lasso2d",
+  #                                       "select2d",
+  #                                       "zoom2d",
+  #                                       "autoScale2d",
+  #                                       "resetScale2d",
+  #                                       "hoverClosestCartesian"))
+  #   
+  #   lines <- list(list(
+  #     type = "line",
+  #     line = list(color = "grey"),
+  #     xref = "x",
+  #     yref = "y",
+  #     x0 = 0,
+  #     x1 = max(res$data$n),
+  #     y0 = .05,
+  #     y1 = .05
+  #   ))
+  #   
+  #   layout(fig, shapes = lines)
+  #   
+  # })
 
 }
 
