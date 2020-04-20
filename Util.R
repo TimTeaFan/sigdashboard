@@ -68,7 +68,7 @@ sig_test <- function(df, chi2 = TRUE) {
 
 # find sample size
 
-find_sample_size <- function(.n1 = NULL, .n2 = 5000, base, target) {
+find_sample_size <- function(.n1 = NULL, .n2 = 5000, .base, .target, chi2 = TRUE) {
   
   i = .n2
   n_ini <- seq(i/50, i, by = .5*i / 50)
@@ -80,15 +80,15 @@ find_sample_size <- function(.n1 = NULL, .n2 = 5000, base, target) {
   
     if (is.null(.n1)) {
     temp_res <- temp_res %>%
-      mutate(data = map(n, ~ create_df(n = .x, n2 = .x, base = base, target = target)))
+      mutate(data = map(n, ~ create_df(n = .x, n2 = .x, base = .base, target = .target)))
     } else {
       temp_res <- temp_res %>%
-        mutate(data = map(n, ~ create_df(n = .n1, n2 = .x, base = base, target = target)))
+        mutate(data = map(n, ~ create_df(n = .n1, n2 = .x, base = .base, target = .target)))
     }
   
   temp_res <- temp_res %>%
     mutate(real_target = map_dbl(data, check_df),
-           p_value = map_dbl(data, sig_test),
+           p_value = map_dbl(data, ~ sig_test(.x, chi2)),
            sig_level = case_when(
              p_value < .001 ~ 0.1,
              p_value < .01 ~ 1,
@@ -117,7 +117,7 @@ find_sample_size <- function(.n1 = NULL, .n2 = 5000, base, target) {
    } else if (check == 0 & i < 20000) {
 
     i <- i + 5000
-    find_sample_size(.n1 = .n1, .n2 = i, base = base, target = target)
+    find_sample_size(.n1 = .n1, .n2 = i, .base = .base, .target = .target)
 
    } else {
      res_ls <- list(data = temp_res,

@@ -2,6 +2,7 @@
 library(shiny)
 library(shinythemes)
 library(shinyWidgets)
+library(waiter)
 library(DT)
 library(tidyverse)
 library(plotly)
@@ -11,6 +12,8 @@ source("Util.R")
 ui <- fluidPage(
   
   theme = shinytheme("paper"),
+  
+  use_waiter(),
   
   titlePanel("Significance and Sample Size Dashboard"),
   
@@ -25,7 +28,7 @@ ui <- fluidPage(
       
       uiOutput("n_input"),
       
-      conditionalPanel("input.n2_switch == true & (input.tabs == 1 | input.tabs == 3)",
+      conditionalPanel("input.n2_switch == true & (input.tabs == 1)",
       numericInput("n2",
                    HTML("<b>Sample size</b> (target group)"),
                    value = 1000,
@@ -90,10 +93,9 @@ ui <- fluidPage(
                  dataTableOutput("calc")),
         
         tabPanel("Find sample size",
-                 value = 2),
-        
-        tabPanel("Find target value",
-                 value = 3)
+                 value = 2,
+                 # verbatimTextOutput("sim"),
+                 plotlyOutput("plot"))
       
       ) # close tabsetPanel
       
@@ -107,6 +109,8 @@ server <- function(input, output, session) {
   target_range2 <- reactive(input$target_range[[2]] / 100)
   base <- reactive(input$base / 100)
   steps <- reactive(input$steps / 100)
+  
+  w <- Waiter$new(id = "plot", color = "white")
 
   n2_reac <- reactive(
 
@@ -158,8 +162,22 @@ server <- function(input, output, session) {
   
   sim_n <- eventReactive(input$go2, {
     
+    n1_arg <- if(input$n2_switch) input$n1 else NULL
     
+    w$show()
+
+    res <- find_sample_size(.n1 = n1_arg,
+                     .base = input$base / 100,
+                     .target = input$target / 100,
+                     chi2 = input$chi2)
+    
+    w$hide()
+    
+    res
+
   })
+  
+  output$sim <- renderPrint({sim_n()})
   
   output$calc <- DT::renderDataTable({
     
@@ -177,34 +195,37 @@ server <- function(input, output, session) {
                   backgroundColor = styleEqual(sig_lvls, col_lvls))
   })
   
-  # output$plot <- renderPlotly({
-  #   
-  #   fig <- plot_ly(res$data, x = ~n, y = ~p_value, name = 'TEST', type = 'scatter', mode = 'lines') %>% 
-  #     config(displaylogo = FALSE ,
-  #            modeBarButtonsToRemove = c("zoomIn2d",
-  #                                       "zoomOut2d",
-  #                                       "pan2d",
-  #                                       "lasso2d",
-  #                                       "select2d",
-  #                                       "zoom2d",
-  #                                       "autoScale2d",
-  #                                       "resetScale2d",
-  #                                       "hoverClosestCartesian"))
-  #   
-  #   lines <- list(list(
-  #     type = "line",
-  #     line = list(color = "grey"),
-  #     xref = "x",
-  #     yref = "y",
-  #     x0 = 0,
-  #     x1 = max(res$data$n),
-  #     y0 = .05,
-  #     y1 = .05
-  #   ))
-  #   
-  #   layout(fig, shapes = lines)
-  #   
-  # })
+  output$plot <- renderPlotly({
+
+    fig <- plot_ly(sim_n()$data,
+                   x = ~n,
+                   y = ~p_value,
+                  type = 'scatter',
+                  mode = 'lines') %>%
+      config(displaylogo = FALSE ,
+             modeBarButtonsToRemove = c("zoomIn2d",
+                                        "zoomOut2d",
+                                        "pan2d",
+                                        "lasso2d",
+                                        "select2d",
+                                        "zoom2d",
+                                        "autoScale2d",
+                                        "hoverClosestCartesian"))
+
+    lines <- list(list(
+      type = "line",
+      line = list(color = "grey"),
+      xref = "x",
+      yref = "y",
+      x0 = 0,
+      x1 = max(sim_n()$data$n),
+      y0 = .05,
+      y1 = .05
+    ))
+
+    layout(fig, shapes = lines)
+
+  })
 
 }
 
