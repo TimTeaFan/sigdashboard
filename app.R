@@ -76,10 +76,7 @@ ui <- fluidPage(
                  actionButton("go","calculate")),
       
       conditionalPanel("input.tabs == 2",
-                       actionButton("go2","find sample size")),
-      
-      conditionalPanel("input.tabs == 3",
-                       actionButton("go3","find target level"))
+                       actionButton("go2","find sample size"))
       
     ), # close sidebarPanel 
     
@@ -95,7 +92,8 @@ ui <- fluidPage(
         tabPanel("Find sample size",
                  value = 2,
                  # verbatimTextOutput("sim"),
-                 plotlyOutput("plot"))
+                 plotlyOutput("plot"),
+                 htmlOutput("n_text"))
       
       ) # close tabsetPanel
       
@@ -110,7 +108,9 @@ server <- function(input, output, session) {
   base <- reactive(input$base / 100)
   steps <- reactive(input$steps / 100)
   
-  w <- Waiter$new(id = "plot", color = "white")
+  w <- Waiter$new(id = "plot",
+                  html = spin_3k(),
+                  color = "white")
 
   n2_reac <- reactive(
 
@@ -118,6 +118,14 @@ server <- function(input, output, session) {
       else input$n1
 
   )
+  
+  flag <- reactiveVal(0)
+    
+  observeEvent(input$go2, {
+    newValue <- flag() + 1    
+    flag(newValue)             
+  })
+  
   
   output$n_input <- renderUI({
     
@@ -179,7 +187,7 @@ server <- function(input, output, session) {
   
   output$sim <- renderPrint({sim_n()})
   
-  output$calc <- DT::renderDataTable({
+  output$calc <- DT::renderDataTable({ 
     
     sig_lvls <- c("0.1 %", "1 %", "5 %", "10 %")
     col_lvls <- c("rgba(33, 150, 243, 0.5)",
@@ -196,6 +204,13 @@ server <- function(input, output, session) {
   })
   
   output$plot <- renderPlotly({
+    
+    if(flag() == 0) {
+      
+      plotly_empty() %>% config(displayModeBar = FALSE,
+                                displaylogo = FALSE)
+    
+    } else {
 
     fig <- plot_ly(sim_n()$data,
                    x = ~n,
@@ -225,8 +240,38 @@ server <- function(input, output, session) {
 
     layout(fig, shapes = lines)
 
+    }
+
+  })
+  
+  output$n_text <- renderText({
+    
+    if (flag() == 0) {
+      
+    } else if (is.null(sim_n()$n)) {
+      
+    HTML("For the choosen parameters a change from <b>", isolate(input$base) , "%</b>", "to <b>",
+         isolate(input$target),
+           "%</b> will need a sample size above <b>20.000</b> to be statistically significant.")  
+      
+    } else if (isolate(input$n2_switch)) {
+      
+      HTML("Based on a base level of <b>", isolate(input$base), "%</b>, with a sample size of <b>", 
+           isolate(input$n1), "</b>,",
+            " and a target level of <b>", isolate(input$target), "%</b>, a sample size of <b>", sim_n()$n, "</b> is needed for",
+            " statistical signficance.")
+      
+    } else {
+      
+      HTML("Based on a base level of <b>", isolate(input$base), "%</b>",
+            " and a target level of <b>", isolate(input$target), "%</b>, a sample size of <b>", sim_n()$n, "</b> for each group",
+            " is needed for statistical significance.")
+      
+    }
+    
   })
 
-}
+
+  }
 
 shinyApp(ui, server)
