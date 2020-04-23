@@ -324,7 +324,9 @@ server <- function(input, output, session) {
     
     fig %>% 
       layout(shapes = lines) %>% 
-      layout(annotations = a) 
+      layout(annotations = a) %>% 
+      layout(xaxis = list(title = "Sample size"),
+             yaxis= list(title = "p value"))
 
     }
 
@@ -368,7 +370,7 @@ server <- function(input, output, session) {
     } else {
 
       fig <- plot_ly(calc_range(),
-                     x = ~base,
+                     x = ~base * 100,
                      y = ~p_value,
                      type = 'scatter',
                      mode = 'lines') %>%
@@ -389,7 +391,7 @@ server <- function(input, output, session) {
         xref = "x",
         yref = "y",
         x0 = 0,
-        x1 = 1,
+        x1 = 100,
         y0 = .05,
         y1 = .05
       ))
@@ -407,7 +409,10 @@ server <- function(input, output, session) {
 
       fig %>%
         layout(shapes = lines) %>%
-        layout(annotations = a)
+        layout(annotations = a) %>% 
+        layout(xaxis = list(title = "Base level",
+                            ticksuffix = "%"),
+               yaxis = list(title = "p value"))
 
     }
     
