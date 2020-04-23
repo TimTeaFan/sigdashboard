@@ -24,12 +24,15 @@ create_df <- function(n, base, target, n2 = NULL) {
 # functions to check real percentage of respondents
 check_df <- function(df) {
   
-  df %>% 
+  res <- df %>% 
     group_by(group) %>%
     count(value) %>%
     mutate(freq = prop.table(n)) %>%
-    filter(group == "new", value == 1) %>% 
-    pull(freq)
+    filter(group == "new", value == 1)
+  
+  if (nrow(res) > 0) return(pull(res, freq))
+    else return(NA)
+  
 }
 
 
@@ -126,4 +129,47 @@ find_sample_size <- function(.n1 = NULL, .n2 = 5000, .base, .target, chi2 = TRUE
   }
 
 }
+
+
+# Calculate Difference for all Ranges
+
+calc_diff <- function(.n1, .n2, .diff, chi2 = TRUE) {
+  
+  if (sign(.diff) == -1) {
+    
+    target <- 0
+    base <- target + .diff 
+    
+  } else if (sign(.diff) == 1) {
+    
+    base <- 0
+    target <- base + .diff 
+    
+  } else if (.diff == 0) {
+    stop("difference cannot be `0`")
+  } 
+  
+  tibble(target = seq(target_range1(),
+                      target_range2(),
+                      by = steps())) %>%
+    mutate(data = map(target,
+                      ~ create_df(n = input$n1,
+                                  n2 = n2_reac(),
+                                  base = base(),
+                                  target = .x)),
+           real_target = map_dbl(data, check_df),
+           p_value = map_dbl(data, ~ sig_test(.x, input$chi2)),
+           sig_level = case_when(
+             p_value < .001 ~ "0.1 %",
+             p_value < .01 ~ "1 %",
+             p_value < .05 ~ "5 %",
+             p_value < .1  ~ "10 %",
+             T ~ "Not sig.")
+    ) %>%
+    select(target, real_target, p_value, sig_level)
+  
+  
+}
+
+
 
