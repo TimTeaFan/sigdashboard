@@ -1,6 +1,4 @@
-
 library(shiny)
-library(shinydashboard)
 library(shinythemes)
 library(shinyWidgets)
 library(waiter)
@@ -507,11 +505,6 @@ server <- function(input, output, session) {
 
     }
     
-  })
-
-  output$box <- renderValueBox({
-                  valueBox("Target NPS",
-                           50)
   })
 
   }
