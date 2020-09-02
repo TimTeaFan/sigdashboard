@@ -1,5 +1,6 @@
 
 library(shiny)
+library(shinydashboard)
 library(shinythemes)
 library(shinyWidgets)
 library(waiter)
@@ -8,6 +9,8 @@ library(tidyverse)
 library(plotly)
 
 source("Util.R")
+
+`%then%` <- shiny:::`%OR%`
 
 ui <- fluidPage(
   
@@ -28,7 +31,7 @@ ui <- fluidPage(
       
       uiOutput("n_input"),
       
-      conditionalPanel("input.n2_switch == true & (input.tabs == 1 | input.tabs == 3)",
+      conditionalPanel("input.n2_switch == true & (input.tabs == 1 | input.tabs == 3 | input.tabs == 4)",
       numericInput("n2",
                    HTML("<b>Sample size</b> (target group)"),
                    value = 1000,
@@ -36,13 +39,45 @@ ui <- fluidPage(
                    max = NA,
                    step = 100)),
       
-      conditionalPanel("input.tabs != 3",
+      conditionalPanel("input.tabs != 3 && input.tabs != 4",
       numericInput("base",
                    HTML("<b>Base level</b> (in %)"),
                    value = 10,
                    min = 0,
                    max = 100,
                    step = 1)),
+      
+      conditionalPanel("input.tabs == 4",
+                       numericInput("base_prom",
+                                    HTML("<b>Base level promoter</b>"),
+                                    value = 50,
+                                    min = 0,
+                                    max = 100,
+                                    step = 1)),
+      
+      conditionalPanel("input.tabs == 4",
+                       numericInput("base_detr",
+                                    HTML("<b>Base level detractor</b>"),
+                                    value = 20,
+                                    min = 0,
+                                    max = 100,
+                                    step = 1)),
+      
+      conditionalPanel("input.tabs == 4",
+                       numericInput("target_prom",
+                                    HTML("<b>Target level promoter</b>"),
+                                    value = 75,
+                                    min = 0,
+                                    max = 100,
+                                    step = 1)),
+      
+      conditionalPanel("input.tabs == 4",
+                       numericInput("target_detr",
+                                    HTML("<b>Target level detractor</b>"),
+                                    value = 25,
+                                    min = 0,
+                                    max = 100,
+                                    step = 1)),
       
       conditionalPanel("input.tabs == 3",
                        numericInput("diff",
@@ -74,12 +109,13 @@ ui <- fluidPage(
                      max = 5,
                      step = 0.25)),
       
+      conditionalPanel("input.tabs != 4",
       radioGroupButtons(
         inputId = "chi2",
         label = HTML("<b>Statistical test</b>"), 
         choices = c("Chi-squared" = TRUE, "T-test" = FALSE),
         status = "primary"
-      ),
+      )),
 
       conditionalPanel("input.tabs == 1",
                  actionButton("go","calculate")),
@@ -109,7 +145,11 @@ ui <- fluidPage(
         
         tabPanel("Target Difference",
                  plotlyOutput("range"),
-                 value = 3)
+                 value = 3),
+        
+        tabPanel("NPS",
+                 dataTableOutput("nps"),
+                 value = 4)
       
       ) # close tabsetPanel
       
@@ -123,6 +163,7 @@ server <- function(input, output, session) {
   target_range2 <- reactive(input$target_range[[2]] / 100)
   base <- reactive(input$base / 100)
   steps <- reactive(input$steps / 100)
+  
   
   w <- Waiter$new(id = "plot",
                   html = spin_3k(),
@@ -194,6 +235,38 @@ server <- function(input, output, session) {
     select(target, real_target, p_value, sig_level)
     
   })
+
+  calc_nps <- reactive({
+    
+    validate(
+      need((input$base_prom + input$base_detr) <= 100,
+           "promoter and detractor base level must not exceed 100% in total") %then%
+      need((input$target_prom + input$target_detr) <= 100,
+           "promoter and detractor target level must not exceed 100% in total")
+    )
+
+    create_nps_df(n = input$n1,
+                  n2 = n2_reac(),
+                  base_prom = input$base_prom/100,
+                  base_detr = input$base_detr/100,
+                  target_prom = input$target_prom/100,
+                  target_detr = input$target_detr/100
+                  ) %>% 
+      t.test(value ~ group, .) %>% 
+      broom::tidy() %>% 
+      mutate(sig_level = case_when(
+        p.value < .001 ~ "0.1 %",
+        p.value < .01 ~ "1 %",
+        p.value < .05 ~ "5 %",
+        p.value < .1  ~ "10 %",
+        T ~ "Not sig.")) %>%
+      select("Target NPS" = estimate1, 
+             "Base NPS" = estimate2,
+             "p_value" = p.value,
+             sig_level) 
+    
+  })
+
   
   # finds sample size
   sim_n <- eventReactive(input$go2, {
@@ -274,6 +347,24 @@ server <- function(input, output, session) {
                   # target = "row",
                   backgroundColor = styleEqual(sig_lvls, col_lvls))
   })
+  
+  
+  output$nps <- DT::renderDataTable({ 
+    
+    sig_lvls <- c("0.1 %", "1 %", "5 %", "10 %")
+    col_lvls <- c("rgba(33, 150, 243, 0.5)",
+                  "rgba(33, 150, 243, 0.35)",
+                  "rgba(33, 150, 243, 0.2)",
+                  "rgba(33, 150, 243, 0.1)")
+    
+    datatable(calc_nps(), options = list(dom = 'tp'), rownames = FALSE) %>%
+      formatRound(c("Target NPS", "Base NPS"), 0) %>% 
+      formatRound('p_value', 3) %>% 
+      formatStyle("sig_level",
+                  # target = "row",
+                  backgroundColor = styleEqual(sig_lvls, col_lvls))
+  })
+  
   
   output$plot <- renderPlotly({
     
@@ -418,6 +509,10 @@ server <- function(input, output, session) {
     
   })
 
+  output$box <- renderValueBox({
+                  valueBox("Target NPS",
+                           50)
+  })
 
   }
 

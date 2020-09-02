@@ -20,7 +20,34 @@ create_df <- function(n, base, target, n2 = NULL) {
     
   }
 }
+
+
+create_nps_df <- function(n, base_prom, base_detr, target_prom, target_detr, n2 = NULL) {
   
+  if (is.null(n2)) {
+    
+    tibble(group = c(rep("ref", n), rep("new", n)),
+           value = c(rep(100, round(n * base_prom, 0)),
+                     rep(-100, round(n * base_detr, 0)),
+                     rep(0, n - round(n * base_prom, 0) - round(n * base_detr, 0)),
+                     rep(100, round(n * target_prom, 0)),
+                     rep(-100, round(n * target_detr, 0)),
+                     rep(0, n - round(n * target_prom, 0) - round(n * target_detr, 0))))
+    
+  } else {
+    
+    tibble(group = c(rep("ref", n), rep("new", n2)),
+           value = c(rep(100, round(n * base_prom, 0)),
+                     rep(-100, round(n * base_detr, 0)),
+                     rep(0, n - round(n * base_prom, 0) - round(n * base_detr, 0)),
+                     rep(100, round(n2 * target_prom, 0)),
+                     rep(-100, round(n2 * target_detr, 0)),
+                     rep(0, n2 - round(n2 * target_prom, 0) - round(n2 * target_detr, 0))))
+    
+  }
+}
+
+
 # functions to check real percentage of respondents
 check_df <- function(df) {
   
